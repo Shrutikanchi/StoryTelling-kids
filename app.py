@@ -4,12 +4,22 @@ import openai
 from openai import OpenAI
 from dotenv import load_dotenv
 
-client=OpenAI()
-
 load_dotenv()
+
+client=OpenAI()
 
 app=Flask(__name__)
 openai.api_key = os.getenv('OPENAI_API_KEY')
+
+Blocked_Keywords =["kill","abuse","blood","die","gun","knife","blood","violence"]
+
+story_log =[]
+
+def is_story_safe(text):
+    for word in Blocked_Keywords:
+        if word.lower() in text.lower():
+            return False 
+        return True
 
 @app.route('/')
 def home():
@@ -42,8 +52,29 @@ def generate_story():
             max_tokens=300
         )
         story = response.choices[0].message.content
+        
+
+        if not is_story_safe(story):
+            return jsonify({"error": "Story not safe for children."}), 400
+        
+        story_entry = {
+            "id": len(story_log) + 1,
+            "hero": hero,
+            "world": world,
+            "feeling": feeling,
+            "story": story,
+            "approved": False
+        }
+        story_log.append(story_entry)
+
+        return jsonify({"story": story})
+    
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    
+@app.route('/parent/review_stories', methods=['GET'])
+def review_stories():
+    return jsonify({"stories": story_log})
 
 
 if __name__=='__main__':
